@@ -6,9 +6,9 @@ import pandas as pd
 import datetime
 import os
 import matplotlib.pyplot as plt
-
+import numpy as np
 import plotly
-from plotly.graph_objs import Scatter, Layout
+from plotly.graph_objs import Scatter, Layout, Histogram, Figure
 import xlsxwriter
 
 def get_active_users(pCursor, pDate1, pDate2):
@@ -89,17 +89,21 @@ def get_storage_usage_at_date(pCursor, pDate):
         return size
     return 0
 def get_jobs_start_time(pCursor):
-    query = "SELECT galaxy.job.create_time FROM galaxy.job"
+    query = "SELECT EXTRACT(HOUR FROM galaxy.job.create_time) FROM galaxy.job"
     pCursor.execute(query)
     records = pCursor.fetchall()
     return records
 
 def get_jobs_finish_time(pCursor):
-    query = "SELECT galaxy.job.create_time FROM galaxy.job"
+    query = "SELECT EXTRACT(HOUR FROM galaxy.job.update_time) FROM galaxy.job"
     pCursor.execute(query)
     records = pCursor.fetchall()
     return records
-
+def get_user_action(pCursor):
+    query = "SELECT * FROM galaxy.user_action "
+    pCursor.execute(query)
+    records = pCursor.fetchall()
+    return records
 def plot_plotly(pX, pY, pTitle, pYaxisTitle, pFileName, pX2=None, pY2=None, pYaxisTitle2=None, pMode=None, pMode2=None, pFigureTitle=None):
     if pMode is None:
         pMode = 'lines+markers'
@@ -123,9 +127,24 @@ def plot_plotly(pX, pY, pTitle, pYaxisTitle, pFileName, pX2=None, pY2=None, pYax
                                     gridwidth= 2,
                                 )
                     )
-    }, filename='images/'+pFileName+'_'+pTitle+'.html', auto_open=False)
-    return 'images/'+pFileName+'_'+pTitle+'.html'
+    }, filename='../docs/images/'+pFileName+'_'+pTitle+'.html', auto_open=False)
+    return '../docs/images/'+pFileName+'_'+pTitle+'.html'
 
+def plot_plotly_histogram(pX, pX2, pFileName):
+    trace1 = Histogram(
+                            x=pX,
+                            opacity=0.75
+                            )
+    trace2 = Histogram(
+                            x=pX2,
+                            opacity=0.75
+                        )
+
+    data = [trace1, trace2]
+    layout = Layout(barmode='overlay')
+    fig = Figure(data=data, layout=layout)
+
+    plotly.offline.plot(fig, filename=pFileName+".html", auto_open=False)
 def create_html(pFile_names, pHeaders, pDiv, pReportTitle):
     html_string = '''
     <html> 
@@ -148,7 +167,7 @@ def create_html(pFile_names, pHeaders, pDiv, pReportTitle):
     html_string += ''' </body> \
                         </html>'''
        
-    f = open(pReportTitle + '.html','w')
+    f = open("../docs/"+pReportTitle + '.html','w')
     f.write(html_string)
     f.close()
 def write_month_statistic_to_excel(pFile, pRow, pCol, pData, pHeader):
@@ -181,20 +200,16 @@ def create_report(pCursor, pStartDate, pEndDate, pReportTitle, pExcel=False, pEx
         registered_users_in_year_per_month.append(get_registered_users_at_date(pCursor, str(date_end[i])))
         storage_usage_per_month.append(get_storage_usage_at_date(pCursor, str(date_end[i])))
         number_of_workflows_usage_per_month.append(get_number_of_workflows_usage(pCursor, str(date_start[i]), str(date_end[i])))
+ 
+    
+    # start_data = list(zip(*get_jobs_start_time(pCursor))[0])
+    # finish_data = list(zip(*get_jobs_finish_time(pCursor))[0])
+    
+    # plot_plotly_histogram(start_data, finish_data, "histogram")
+   
     
     
-
-    # start_data = get_jobs_start_time(pCursor)
-    # # print start_data
-    # for data in start_data:
-    #     data = data[0].time()
-    # finish_data = get_jobs_finish_time(pCursor)
-    # for data in finish_data:
-    #     print data[0].time()
-    #     data = data[0].time()
-    #     print data
     dates_for_plotting = date_end.format()
-    # hours = pd.date_range(start='00:00:00', end='23:59:59', freq='H')
     filenames = []
     filenames.append(plot_plotly(dates_for_plotting, active_users_per_month, "Active users per month", "Unique users", pReportTitle))
     filenames.append(plot_plotly(dates_for_plotting, jobs_per_month, "Jobs per month", "Unique jobs", pReportTitle))
@@ -203,10 +218,9 @@ def create_report(pCursor, pStartDate, pEndDate, pReportTitle, pExcel=False, pEx
     filenames.append(plot_plotly(dates_for_plotting, number_of_workflows_usage_per_month, "Used workflows per month", "Used workflows", pReportTitle))
     filenames.append(plot_plotly(dates_for_plotting, registered_users_in_year_per_month, "Registered users per month", "Total registered users", pReportTitle))
     filenames.append(plot_plotly(dates_for_plotting, registered_users_in_year_per_month, "Registered users per month", "Total registered users", pReportTitle))
-    # filenames.append(plot_plotly(hours.format(), start_data, "Times of start and finish of a job", "Time start job", pX2=hours.format(), pY2=finish_data, pYaxisTitle2="Time end job", pMode="markers", pMode2="markers", pFigureTitle="Hours"))
 
     headers = ["Active users per month", "Jobs per month", "Used histories", "Development of storage usage", "Workflows", "Development of registered users"]
-    div = ["An unique active user in a month is someone who runs a job a least once.", "", "", "Storage usage", "Number of workflow runs in a month.", "", ""]
+    div = ["An unique active user in a month is someone who runs a job a least once.", "", "Number of used histories in a month", "Storage usage", "Number of workflow runs in a month.", "", ""]
     create_html(filenames, headers, div, pReportTitle)
 
     if pExcel:
@@ -241,8 +255,8 @@ def create_report(pCursor, pStartDate, pEndDate, pReportTitle, pExcel=False, pEx
 
 
 def main():
-    if not os.path.exists("images"):
-        os.makedirs("images")
+    if not os.path.exists("../docs/images"):
+        os.makedirs("../docs/images")
     # connection string to database
     conn_string = "host='localhost' dbname='galaxydb' user='postgres' password=''"
     # get a connection, if a connect cannot be made an exception will be raised here
