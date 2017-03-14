@@ -209,9 +209,11 @@ def main(args=None):
     print cluster_borders
 
     hierachical_clusters = []
-    for i in xrange(1, len(cluster_borders), 1):
+    for i in xrange(0, len(cluster_borders), 1):
          diff_left = cluster_borders[i][0] - cluster_borders[i-1][1]
          diff_right = cluster_borders[i+1][0] - cluster_borders[i][1]
+
+
          
  
     # print cluster_ranges
