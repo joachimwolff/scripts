@@ -73,7 +73,7 @@ def extract_diagonal(pMatrix, pWidth):
         for j, k in zip(xrange(pWidth, 0, -1), xrange(0, pWidth, 1)):
             # print j, "::", k
             if i - j < 0:
-                diagonal[i, k] = 255
+                diagonal[i, k] = 0
             else:
                 diagonal[i, k] = pMatrix[i, i - j]
         diagonal[i, pWidth - 1] = 0
@@ -83,13 +83,13 @@ def direction_edges(pGradientX, pGradientY):
     return atan2(pGradientX, pGradientY)
 
 def corner(pMatrix):
-    Sxx = np.gradient(pMatrix, axis = 0)
-    Sxx = np.gradient(Sxx, axis = 0)
+    Sx = np.gradient(pMatrix, axis = 0)
+    # Sx = np.gradient(Sx, axis = 0)
     
-    Syy = np.gradient(pMatrix, axis = 1)
-    Syy = np.gradient(Syy, axis = 1)
+    Sy = np.gradient(pMatrix, axis = 1)
+    # Syy = np.gradient(Syy, axis = 1)
     
-    return Sxx + Syy
+    return Sx + Sy
     # np.gradient(pMatrix)
     
 
@@ -188,77 +188,73 @@ def main(args=None):
     # print edges_line
     # print edges_matrix
     corners =  corner(edges_line)
-
+    print corners
+    from copy import deepcopy
+    corners_plot = deepcopy(corners)
     # corner_indices = corners == 0
-    none_corner_indices = corners != 0
-    
+    # none_corner_indices = corners != 0
+    corners = np.nan_to_num(corners)
     # corners[corner_indices] = 0
-    corners[none_corner_indices] = 255
-
+    # corners[none_corner_indices] = 255
+    # print corners_plot
+    corner_values = np.zeros(len(corners[0]))
+    for i in xrange(len(corners)):
+        for j in xrange(len(corners[i])):
+            corner_values[j] += corners[i][j]
+    corner_values /= len(corner_values)        
     cluster_ranges = []
     for i in xrange(len(corners[-5])):
         if corners[-5][i] == 0:
             cluster_ranges.append(i)
-    cluster_borders = []
+    cluster_borders = [[]]
     for k, g in groupby(enumerate(cluster_ranges), lambda (i, x): i-x):
         tmp_list = map(itemgetter(1), g)
         if len(tmp_list) > 2:
-            cluster_borders.append([tmp_list[1], tmp_list[-1]]) 
+            cluster_borders[0].append([tmp_list[1],tmp_list[-1]]) 
         # print [foo[1], foo[-1]]
 
     print cluster_borders
 
-    hierachical_clusters = []
-    for i in xrange(0, len(cluster_borders), 1):
-         diff_left = cluster_borders[i][0] - cluster_borders[i-1][1]
-         diff_right = cluster_borders[i+1][0] - cluster_borders[i][1]
+    # hierachical_clusters = []
+    preferred_partner = {0:1, len(cluster_borders[0])-1 : len(cluster_borders[0])-2}
+    # diff_left = cluster_borders[1][0] - cluster_borders[0][1] 
+    j = 0
+    while len(cluster_borders[j]) >= 2:
+        for i in xrange(1, len(cluster_borders[j]) - 1, 1):
+            diff_left = cluster_borders[j][i][0] - cluster_borders[j][i-1][1]
+            diff_right = cluster_borders[j][i+1][0] - cluster_borders[j][i][1]
+            if diff_left < diff_right:
+                preferred_partner[i] = i - 1
+            else:
+                preferred_partner[i] = i + 1
+        
+        cluster_borders.append([])
+        # print preferred_partner
+        if len(preferred_partner) > 0:
+            for i in xrange(0, len(cluster_borders[j])):
+                # print i 
+                # print preferred_partner[i]
+                # print preferred_partner[preferred_partner[i]]
+                # print "\n\n"
+                if i == preferred_partner[preferred_partner[i]]:
+                    cluster_borders[j+1].append([cluster_borders[j][i][0], cluster_borders[j][preferred_partner[i]][-1]])
+                elif preferred_partner[preferred_partner[i]] != -1:
+                    cluster_borders[j+1].append(cluster_borders[j][i])
+                preferred_partner[i] = -1
+        # print cluster_borders
+        preferred_partner.clear()
+        # if ()
+        # print "Iteration: ", j
+        # print "Cluster: ", cluster_borders[j+1]
+        preferred_partner = {0:1, len(cluster_borders[j+1])-1 : len(cluster_borders[j+1])-2}
+        j += 1
+
+    print cluster_borders
 
 
-         
- 
-    # print cluster_ranges
-    # high_values_indices = corners ==  0  # Where values are low
-    # print high_values_indices
-    # corners[high_values_indices] = 255
 
-    # for i in xrange(0, len(corners)):
-    #     for j in xrange(0, len(corners[i])):
-    #         if 
     print corners
-    # print corners
-    # high_values_indices = corners <  0  # Where values are low
-    # corners[high_values_indices] = 255
-
-    # edges_graph = image.img_to_graph(edges_inv)
-    # edges_graph = edges_graph.tocsr()
-    # print edges_graph
-    # y_predict = AffinityPropagation(preference=-50).fit_predict(edges_graph)
    
-    # colors = np.array(['b','g','r','c','m','y','k']* ((n_clusters_ / 7) + 1))
-
-
-    # colors = colors.split("")
-    # print colors
-    # for 
-    # for k, col in zip(xrange(n_clusters_), colors):
-    #     class_members = labels == k
-        # print "class_members: ", class_members
-        # cluster_center = X[cluster_centers_indices[k]]
-        # plt.plot(X[class_members, 0], X[class_members, 1], col)
-    # for i in xrange(len(X)):
-    #     for j in xrange(len(X[0])):
-        # y_pred = af.predict(i, j)
-    # plt.scatter(image_array, y_pred, c=y_pred, cmap='grey')
-        # plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor=col,
-        #         markeredgecolor='k', markersize=14)
-        # for x in X[class_members]:
-        #     # print [cluster_center[0], x[0]]
-        #     # print [cluster_center[1], x[1]]
-        #     plt.plot([cluster_center[0], x[0]], [cluster_center[1], x[1]], col)
-
-    # plt.title('Estimated number of clusters: %d' % n_clusters_)
-    # plt.savefig("foo.png", dpi=1200)
-
 
     fig, ax = plt.subplots()
     plt.title(args.region, fontsize=14, fontweight='bold')
@@ -289,8 +285,29 @@ def main(args=None):
 
     
     plt.cla()
-    ax.matshow(corners , cmap='gray')
+    fig, (ax1, ax2)  = plt.subplots(2, 1)
+    x = range(0, len(corners_plot[-5]))
+    # x = [0] * len(corners_plot[-1])
+    # print x
+    ax1.matshow(corners , cmap='gray')
+    ax2.fill_between(x, 0, corner_values)
     plt.savefig("corners.png", dpi=600)
+
+    from scipy.io import mmwrite
+    mmwrite("corners", corners)
+    mmwrite("edges", edges_line)
+    np.save("corners_second_gradient", corners_plot[-5])
+    
+    print len(corners_plot[-5])
+
+    from scipy.cluster import hierarchy
+    # import matplotlib.pyplot as plt
+   
+    Z = hierarchy.linkage(cluster_borders[0], 'single')
+    plt.figure()
+    dn = hierarchy.dendrogram(Z, count_sort=True)
+    print "dn: ", dn
+    plt.savefig("Dendogram.png", dpi=600)
 def to_rgb4(im):
     # we use weave to do the assignment in C code
     # this only gets compiled on the first call
