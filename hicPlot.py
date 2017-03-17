@@ -73,10 +73,11 @@ def extract_diagonal(pMatrix, pWidth):
         for j, k in zip(xrange(pWidth, 0, -1), xrange(0, pWidth, 1)):
             # print j, "::", k
             if i - j < 0:
-                diagonal[i, k] = 0
+                diagonal[i, k] = float('nan')
+                # print "foo"
             else:
                 diagonal[i, k] = pMatrix[i, i - j]
-        diagonal[i, pWidth - 1] = 0
+        diagonal[i, pWidth - 1] = 255
     return diagonal.T
 
 def direction_edges(pGradientX, pGradientY):
@@ -84,10 +85,10 @@ def direction_edges(pGradientX, pGradientY):
 
 def corner(pMatrix):
     Sx = np.gradient(pMatrix, axis = 0)
-    # Sx = np.gradient(Sx, axis = 0)
+    # Sxx = np.gradient(Sx, axis = 0)
     
     Sy = np.gradient(pMatrix, axis = 1)
-    # Syy = np.gradient(Syy, axis = 1)
+    # Syy = np.gradient(Sy, axis = 1)
     
     return Sx + Sy
     # np.gradient(pMatrix)
@@ -124,49 +125,13 @@ def main(args=None):
         matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
     # matrix = np.asarray(ma.matrix[idx1, :][:, idx2].todense().astype(float))
     matrix = np.nan_to_num(matrix)
-    # matrix = np.log(matrix)
-    # matrix_norm = matrix * (255.0/matrix.max())
-    # high_values_indices = matrix_norm >  150  # Where values are low
-    # matrix_norm[high_values_indices] = 255
-    # print edges_matrix
-    # edges_matrix = edges(matrix)
+    
     
     matrix_log = np.log(matrix)
-    # matrix = ndimage.gaussian_filter(matrix_log, 1)
-    
-    # direction_edges()
-    # plot_heatmap(matrix_log, "hicPlot.html", edges_matrix)
-    # plot_heatmap(edges_matrix, "hicPlot_edges.html", edges_matrix)
-    
-    # matrix_norm = matrix * (255.0/matrix.max())
-    # matrix_norm = np.log(matrix_norm)
-    
-    # plot_heatmap(matrix_norm, "hicPlot_normalized.html", edges_matrix)
-    
-    # matrix_norm_log = matrix_log * (255.0/matrix_log.max())
-    # # matrix_norm_log = np.log(matrix_norm_log)
-    # plot_heatmap(matrix_norm_log, "hicPlot_normalized_log.html", edges_matrix)
-    # edges_matrix = edges(matrix_norm_log)
-    # plt.matshow(edges_matrix)
-    # matrix_log_edges = matrix_log * (255.0/matrix_log.max())
-    # matrix_log_edges = 255 - matrix_log_edges
+  
     edges_matrix = edges(matrix_log)
     edges_matrix = 255 - edges_matrix
-    # edges_matrix = 0.01 * edges_matrix
-    # plt.figure(1)
-    # plt.imshow(edges_matrix, interpolation='none')
-    # plt.show()
-
-    # from scipy import misc
-    # f = misc.face()
-    # misc.imsave('face.png', f) # uses the Image module (PIL)
-    # low_values_indices = edges_matrix < 100  # Where values are low
-    # edges_matrix[low_values_indices] = 0
-
-    # high_values_indices = edges_matrix > 100  # Where values are low
-    # edges_matrix[high_values_indices] = 255
-
-    # edges_inv = 255 - edges_matrix
+  
     # print edges_matrix
     high_values_indices = edges_matrix >  150  # Where values are low
     edges_matrix[high_values_indices] = 255
@@ -183,79 +148,89 @@ def main(args=None):
 
     ###### find minimas
     edges_line = extract_diagonal(edges_matrix, 50)
-    # edges_line = np.nan_to_num(edges_line)
+    # edges_matrix = edges(matrix_log)
+    orginal_values = extract_diagonal(matrix_log, 50)
     
     # print edges_line
+    edges_line = 255 - edges_line
+    
+    ###
+    ### Smooth values
+    edges_line = ndimage.gaussian_filter(edges_line,  sigma=0.3, order=0)
+
     # print edges_matrix
     corners =  corner(edges_line)
     print corners
-    from copy import deepcopy
-    corners_plot = deepcopy(corners)
-    # corner_indices = corners == 0
-    # none_corner_indices = corners != 0
-    corners = np.nan_to_num(corners)
-    # corners[corner_indices] = 0
-    # corners[none_corner_indices] = 255
+    # from copy import deepcopy
+    # corners_plot = deepcopy(corners)
+    corner_indices = corners == 0
+    none_corner_indices = corners != 0
+    # corners = np.nan_to_num(corners)
+    corners[corner_indices] = 255
+    corners[none_corner_indices] = 0
     # print corners_plot
     corner_values = np.zeros(len(corners[0]))
     for i in xrange(len(corners)):
         for j in xrange(len(corners[i])):
+            # if corners[i][j] == 255:
             corner_values[j] += corners[i][j]
     corner_values /= len(corner_values)        
-    cluster_ranges = []
-    for i in xrange(len(corners[-5])):
-        if corners[-5][i] == 0:
-            cluster_ranges.append(i)
-    cluster_borders = [[]]
-    for k, g in groupby(enumerate(cluster_ranges), lambda (i, x): i-x):
-        tmp_list = map(itemgetter(1), g)
-        if len(tmp_list) > 2:
-            cluster_borders[0].append([tmp_list[1],tmp_list[-1]]) 
-        # print [foo[1], foo[-1]]
 
-    print cluster_borders
+    corner_values = ndimage.gaussian_filter(corner_values,  sigma=2.3, order=0)
+    
 
-    # hierachical_clusters = []
-    preferred_partner = {0:1, len(cluster_borders[0])-1 : len(cluster_borders[0])-2}
-    # diff_left = cluster_borders[1][0] - cluster_borders[0][1] 
-    j = 0
-    while len(cluster_borders[j]) >= 2:
-        for i in xrange(1, len(cluster_borders[j]) - 1, 1):
-            diff_left = cluster_borders[j][i][0] - cluster_borders[j][i-1][1]
-            diff_right = cluster_borders[j][i+1][0] - cluster_borders[j][i][1]
-            if diff_left < diff_right:
-                preferred_partner[i] = i - 1
-            else:
-                preferred_partner[i] = i + 1
-        
-        cluster_borders.append([])
-        # print preferred_partner
-        if len(preferred_partner) > 0:
-            for i in xrange(0, len(cluster_borders[j])):
-                # print i 
-                # print preferred_partner[i]
-                # print preferred_partner[preferred_partner[i]]
-                # print "\n\n"
-                if i == preferred_partner[preferred_partner[i]]:
-                    cluster_borders[j+1].append([cluster_borders[j][i][0], cluster_borders[j][preferred_partner[i]][-1]])
-                elif preferred_partner[preferred_partner[i]] != -1:
-                    cluster_borders[j+1].append(cluster_borders[j][i])
-                preferred_partner[i] = -1
-        # print cluster_borders
-        preferred_partner.clear()
-        # if ()
-        # print "Iteration: ", j
-        # print "Cluster: ", cluster_borders[j+1]
-        preferred_partner = {0:1, len(cluster_borders[j+1])-1 : len(cluster_borders[j+1])-2}
-        j += 1
+    # print cluster_borders
+    interaction_values = np.zeros(len(orginal_values[0]))
+    for i in xrange(len(orginal_values)):
+        for j in xrange(len(orginal_values[i])):
+            if corners[i][j] == 255:
+                interaction_values[j] += orginal_values[i][j]
 
-    print cluster_borders
+    # interaction_values /= len(interaction_values)
+    interaction_values = np.nan_to_num(interaction_values)
+    print "interaction_values: ", interaction_values
+    
+    #########
+    ######### Find clusters
+    gradient_corner = np.gradient(corner_values)
+    gradient_corner = ndimage.gaussian_filter(gradient_corner,  sigma=2.0, order=0)
+    
+    # print gradient_corner
+    cluster = []
+    value = 0
+    result = []
+    for i, value in enumerate(gradient_corner):
+        if i == 0:
+            change = True
+        # elif v < 0 and gradient_corner[i-1] > 0:
+        #     change = True
+        elif value > 0 and gradient_corner[i-1] < 0:
+            change = True
+        else:
+            change = False
 
+        if change:
+            result.append(i)
 
+    # cluster_border = []
 
-    print corners
-   
+    # high_values_indices = result ==  True
+    # print "high values indicies: ", high_values_indices
+    i = 0
+    while i < len(result) - 2:
+        cluster.append([result[i], result[i +1]])
+        i += 1
+    # for i, value in enumerate(result):
+    #     if value:
+    #         cluster_border.append(i)
+    #     if len(cluster_border) == 2:
+    #         cluster.append([cluster_border[0], cluster_border[1]])
+    #         cluster_border = []
 
+    # print result
+    
+    print "Cluster: ", cluster
+    print "Number of clusters: ", len(cluster)
     fig, ax = plt.subplots()
     plt.title(args.region, fontsize=14, fontweight='bold')
     ax.imshow(matrix_log, cmap='hot', interpolation='none', )
@@ -283,10 +258,13 @@ def main(args=None):
     ax.matshow(edges_line , cmap='gray')
     plt.savefig("edges_line.png", dpi=600)
 
+    plt.cla()
+    ax.matshow(edges_matrix , cmap='gray')
+    plt.savefig("edges_matrix.png", dpi=600)
     
     plt.cla()
     fig, (ax1, ax2)  = plt.subplots(2, 1)
-    x = range(0, len(corners_plot[-5]))
+    x = range(0, len(corner_values))
     # x = [0] * len(corners_plot[-1])
     # print x
     ax1.matshow(corners , cmap='gray')
@@ -296,18 +274,25 @@ def main(args=None):
     from scipy.io import mmwrite
     mmwrite("corners", corners)
     mmwrite("edges", edges_line)
-    np.save("corners_second_gradient", corners_plot[-5])
+    # mmwrite("edges_matrix", edges_line)
     
-    print len(corners_plot[-5])
+    
 
-    from scipy.cluster import hierarchy
+    np.save("corners_gradient", gradient_corner)
+    np.save("corner_values", corner_values)
+    np.save("cluster_borders", cluster)
+    
+    
+    # print len(corners_plot[-5])
+
+    # from scipy.cluster import hierarchy
     # import matplotlib.pyplot as plt
    
-    Z = hierarchy.linkage(cluster_borders[0], 'single')
-    plt.figure()
-    dn = hierarchy.dendrogram(Z, count_sort=True)
-    print "dn: ", dn
-    plt.savefig("Dendogram.png", dpi=600)
+    # Z = hierarchy.linkage(cluster_borders[0], 'single')
+    # plt.figure()
+    # dn = hierarchy.dendrogram(Z, count_sort=True)
+    # print "dn: ", dn
+    # plt.savefig("Dendogram.png", dpi=600)
 def to_rgb4(im):
     # we use weave to do the assignment in C code
     # this only gets compiled on the first call
